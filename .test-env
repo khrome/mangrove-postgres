@@ -1,0 +1,6 @@
+# local postgres test setup
+PGUSER='test_user'
+PGHOST='localhost'
+PGPASSWORD='test_password'
+PGDATABASE='test_db'
+PGPORT=5432
