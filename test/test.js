@@ -46,36 +46,71 @@ describe('Mangrove PostgreSQL Adapter', function(){
 
     });
 
+    var byId = (a, b)=>{ return a.id < b.id?-1:1 };
+
+    var saveObjects = function(adapter, table_name, obs, cb){
+        pool.connect().then((client)=>{
+            adapter.exists(table_name, {
+                pool : true,
+                object : obs[0]
+            }, (err)=>{
+                should.not.exist(err);
+                var loaded = new Indexed.Collection(obs, 'id');
+                adapter.saveCollection(loaded, table_name, {}, (saveErr)=>{
+                    should.not.exist(saveErr);
+                    client.query('SELECT * FROM '+table_name, (rErr, res)=>{
+                        should.not.exist(rErr);
+                        obs.length.should.equal(res.rows.length);
+                        var testData = obs.sort(byId);
+                        var returnData = res.rows.sort(byId);
+                        testData.should.deep.equal(returnData);
+                        cb(null, client);
+                    });
+                });
+            });
+        });
+    }
+
     describe('.saveCollection(<collection>, <name>, <options>, <callback>)', function(){
-        it('saves 3 random objects', function(done){
-            pool.connect().then((client)=>{
-                var adapter = new MangrovePostgres.Adapter({});
-                adapter.exists('test_write_table', {
-                    pool:true,
-                    object : data['test_write_table'][0]
-                }, (err)=>{
-                    should.not.exist(err);
-                    var loaded = new Indexed.Collection(data['test_write_table'], 'id');
-                    adapter.saveCollection(loaded, 'test_write_table', {}, (saveErr)=>{
-                        should.not.exist(saveErr);
-                        client.query('SELECT * FROM test_write_table', (reselectErr, res)=>{
-                            client.query('DROP TABLE test_write_table', (dropErr)=>{
-                                should.not.exist(dropErr);
-                                data['test_write_table'].length.should.equal(res.rows.length);
-                                var byId = (a, b)=>{ return a.id < b.id?-1:1 };
-                                var testData = data['test_write_table'].sort(byId);
-                                var returnData = res.rows.sort(byId);
-                                testData.should.deep.equal(returnData);
-                                client.release(true);
-                                adapter.cleanup();
-                                done();
-                            });
-                        });
+
+        it('saves somes random objects', function(done){
+            var adapter = new MangrovePostgres.Adapter({});
+            var table_name = 'test_write_table';
+            saveObjects(adapter, table_name, data[table_name], (err, client)=>{
+                client.release(true);
+                adapter.cleanup();
+                done();
+            });
+
+        });
+
+    });
+
+    describe('.loadCollection(<collection>, <name>, <options>, <callback>)', function(){
+
+        it('can load some data we save immediately before', function(done){
+            var adapter = new MangrovePostgres.Adapter({});
+            var table_name = 'test_write_table';
+            var collection = new Indexed.Collection([], 'id');
+            saveObjects(adapter, table_name, data[table_name], (err, client)=>{
+                adapter.loadCollection(collection, table_name, {}, (loadErr)=>{
+                    should.not.exist(loadErr);
+                    client.query('DROP TABLE '+table_name, (dropErr)=>{
+                        (
+                            new Indexed.Set(collection)
+                        ).toArray().sort(byId).should.deep.equal(
+                            data[table_name].sort(byId)
+                        );
+                        should.not.exist(dropErr);
+                        client.release(true);
+                        adapter.cleanup();
+                        done();
                     });
                 });
             });
 
         });
+
     });
 
 });

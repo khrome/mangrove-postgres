@@ -76,7 +76,19 @@ Adapter.prototype.connect = function(name, options, handler, cb){
 }
 
 Adapter.prototype.load = function(name, options, handler, cb){
-
+    var query = "SELECT * from "+name;
+    //todo: handle query option
+    this.connection.then(()=>{
+        this.engine.query(query, (err, res)=>{
+            if(res && res.rows){
+                var result = res.rows;
+                result.forEach((item)=> handler(item));
+                if(cb) cb(null, result);
+            }else{
+                if(cb) cb( new Error('could not select data'));
+            }
+        });
+    });
 }
 
 Adapter.prototype.cleanup = function(all){
