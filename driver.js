@@ -3,7 +3,6 @@ var fs = require('fs');
 var path = require('path');
 var async = require('async-arrays');
 var pg = require('pg');
-var escape = require('pg-escape');
 
 var pool = new pg.Pool();
 
