@@ -4,39 +4,7 @@ var MangrovePostgres = require('../driver');
 var pg = require('pg');
 var pool = new pg.Pool();
 
-var data = {
-    test_table : [
-        {
-            id : 234,
-            name: 'blah',
-            v: 2.756
-        }
-    ],
-    test_write_table : [
-        {
-            id : 234,
-            name: 'blah',
-            v: 2.756
-        },
-        {
-            id : 456,
-            name: 'baz',
-            v: 3.4895
-        },
-        {
-            id : 139,
-            name: 'bar',
-            v: 2.48
-        },
-        {
-            id : 493,
-            name: 'foo',
-            v: 2.0863
-        }
-    ],
-}
-
-
+var data = require('./data.json');
 
 describe('Mangrove PostgreSQL Adapter', function(){
 
@@ -88,13 +56,13 @@ describe('Mangrove PostgreSQL Adapter', function(){
                 }, (err)=>{
                     should.not.exist(err);
                     var loaded = new Indexed.Collection(data['test_write_table'], 'id');
-                    var byId = (a, b) => { return a.id < b.id?-1:1 };
                     adapter.saveCollection(loaded, 'test_write_table', {}, (saveErr)=>{
                         should.not.exist(saveErr);
                         client.query('SELECT * FROM test_write_table', (reselectErr, res)=>{
                             client.query('DROP TABLE test_write_table', (dropErr)=>{
                                 should.not.exist(dropErr);
                                 data['test_write_table'].length.should.equal(res.rows.length);
+                                var byId = (a, b)=>{ return a.id < b.id?-1:1 };
                                 var testData = data['test_write_table'].sort(byId);
                                 var returnData = res.rows.sort(byId);
                                 testData.should.deep.equal(returnData);
@@ -106,6 +74,8 @@ describe('Mangrove PostgreSQL Adapter', function(){
                     });
                 });
             });
+
         });
     });
+
 });
