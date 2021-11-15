@@ -3,7 +3,6 @@
   "version": "0.0.1",
   "main": "driver.js",
   "scripts": {
-    "ce": "./node_modules/cross-env/src/bin/cross-env.js  PGUSER='test_user' ./node_modules/mocha/bin/mocha",
     "test": "npm run local-test",
     "test-debug": "npm run local-test-debug",
     "run-test": "./node_modules/mocha/bin/mocha",
@@ -12,6 +11,7 @@
     "local-test-debug": "./node_modules/.bin/env-cmd -f ./.test-env npm run run-test-debug"
   },
   "dependencies": {
+    "mangrove-sql-adapter": "0.0.1",
     "pg": "^8.7.1"
   },
   "devDependencies": {

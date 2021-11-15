@@ -49,13 +49,15 @@ describe('Mangrove PostgreSQL Adapter', function(){
     var byId = (a, b)=>{ return a.id < b.id?-1:1 };
 
     var saveObjects = function(adapter, table_name, obs, cb){
+        var primaryKey = 'id';
         pool.connect().then((client)=>{
             adapter.exists(table_name, {
                 pool : true,
+                primaryKey: primaryKey,
                 object : obs[0]
             }, (err)=>{
                 should.not.exist(err);
-                var loaded = new Indexed.Collection(obs, 'id');
+                var loaded = new Indexed.Collection(obs, primaryKey);
                 adapter.saveCollection(loaded, table_name, {}, (saveErr)=>{
                     should.not.exist(saveErr);
                     client.query('SELECT * FROM '+table_name, (rErr, res)=>{
@@ -73,13 +75,15 @@ describe('Mangrove PostgreSQL Adapter', function(){
 
     describe('.saveCollection(<collection>, <name>, <options>, <callback>)', function(){
 
-        it('saves somes random objects', function(done){
+        it('saves some random objects', function(done){
             var adapter = new MangrovePostgres.Adapter({});
             var table_name = 'test_write_table';
             saveObjects(adapter, table_name, data[table_name], (err, client)=>{
-                client.release(true);
-                adapter.cleanup();
-                done();
+                client.query('DROP TABLE '+table_name, (dropErr)=>{
+                    client.release(true);
+                    adapter.cleanup();
+                    done();
+                });
             });
 
         });

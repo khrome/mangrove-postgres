@@ -1,4 +1,120 @@
 var pg = require('pg');
+var pool = new pg.Pool();
+
+module.exports = {
+  Adapter : require('mangrove-sql-adapter').extend({
+      cleanup : function(){
+          try{
+              if(this.engine.release) this.engine.release(true);
+              if(this.engine.end) this.engine.end();
+              if(this.client.release) this.client.release(true);
+              if(this.client.end) this.client.end();
+          }catch(ex){}
+      },
+      client : function(usePooled){
+          return (usePooled && pool) || new pg.Client();
+      },
+      connect: function(name, options, handler, cb){
+          if(!this.connection) this.connection = this.client.connect();
+          this.connection.then((engine)=>{
+              this.engine = engine || this.client;
+              if(cb) cb(null)
+          }).catch((err)=>{
+              if(cb) cb(err)
+          })
+      },
+      loaderResultsHandler: function(err, res, itemHandler, cb){
+          if(res && res.rows){
+              var result = res.rows;
+              result.forEach((item)=> itemHandler(item));
+              if(cb) cb(null, result);
+          }else{
+              if(cb) cb(new Error('could not select data'));
+          }
+      },
+      existsResultsHandler: function(err, res, itemHandler, cb){
+          if(res && res.rows && !err){
+              var result = res.rows[0];
+              cb(null, !!(result && result.exists));
+          }else{
+              cb(err || new Error('no return, no error'));
+          }
+      },
+      createResultsHandler: function(err, res, itemHandler, cb){
+          if(err) return cb(err);
+          cb(null, {created: true});
+      },
+      saveResultsHandler: function(err, res, itemHandler, cb){
+          if(err) return cb(err);
+          cb(null, res);
+      },
+      sqlTypeFromJavascriptType : function(name, value, pk){
+          var type = typeof value;
+          if(type === 'object' && Array.isArray(value)) type = 'array';
+          if(type === 'object' && value instanceof Date) type = 'datetime';
+          if(type === 'number' && !isNaN(value)){
+              // check if it is integer
+              if( Number.isInteger(value) ) type = 'integer';
+              else type = 'float';
+          }
+          var typeCreate;
+          switch(type){
+              case 'string' : typeCreate = 'VARCHAR (255)'; break;
+              case 'integer' : typeCreate = 'INTEGER'; break;
+              case 'bigint' : typeCreate = 'BIGINT'; break;
+              case 'object' : typeCreate = 'JSON'; break;
+              case 'float' : typeCreate = 'FLOAT (8)'; break;
+              //todo: handle arrays + arrays of objects as FKs
+          }
+          if(!typeCreate) throw new Error('Unrecognized Type: '+type);
+          if(name === pk ) return name + ' ' + typeCreate+ ' PRIMARY KEY';
+          return name + ' ' + typeCreate+ ' NOT NULL';
+      },
+      createSQL: function(tableName, object, pk){
+          var fields = Object.keys(object);
+          var creates = [];
+          fields.forEach((field)=>{
+              creates.push(this.sqlTypeFromJavascriptType(field, object[field], pk));
+          });
+          var sql = 'CREATE TABLE '+tableName+'('+creates.join(', ')+')';
+          return sql;
+      },
+      loaderSQL: function(tableName){
+          return "SELECT * from "+tableName;
+      },
+      existsSQL : function(tableName){
+          /*return "SELECT EXISTS ("+
+              "SELECT 1 "+
+              "FROM pg_tables "+
+              "WHERE schemaname = '"+(this.schema || 'public')+"' "+
+              "AND tablename = '"+tableName+"' "+
+              ")";*/
+              return "SELECT * "+
+                  "FROM pg_tables "+
+                  "WHERE schemaname = '"+(this.schema || 'public')+"' "+
+                  "AND tablename = '"+tableName+"' ";
+      },
+      saveSQL : function(table, fields, pk, object, valuesFn){
+          var values = [];
+          fields.forEach((field)=>{
+              values.push(object[field])
+          });
+          //everything needs to be rendered as symbols, so pg escaping can work
+          var symbols = values.map((item, index)=> '$'+(index+1) );
+          var commas = ', ';
+          var query = 'INSERT INTO '+table+'('+fields.join(commas)+') '+
+                      'VALUES ('+symbols.join(commas)+') '+
+                      'ON CONFLICT('+pk+') '+
+                      'DO UPDATE SET '+ fields.map(
+                          (name, index)=> name+' = '+symbols[index]
+                      ).join(commas);
+          if(valuesFn) valuesFn(values);
+          return query;
+      }
+  })
+}
+
+/*var pg = require('pg');
 var fs = require('fs');
 var path = require('path');
 var async = require('async-arrays');
@@ -180,4 +296,4 @@ var term;
 
 module.exports = {
   Adapter : Adapter
-}
+}*/
