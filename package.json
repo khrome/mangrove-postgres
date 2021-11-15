@@ -1,6 +1,6 @@
 {
   "name": "mangrove-postgres",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "main": "driver.js",
   "scripts": {
     "test": "npm run local-test",
